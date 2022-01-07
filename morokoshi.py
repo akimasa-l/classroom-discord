@@ -17,8 +17,10 @@ client = discord.Client()
 @client.event
 async def on_ready():
     # 起動したらターミナルにログイン通知が表示される
+    channel=await client.fetch_channel(morokoshi_token.CHANNEL_ID)
+    await channel.send(getClassroomInfo())
     print('ログインしました')
-    client.channels.cache.get("928869947885633577").send(getClassroomInfo())
+
 
 # メッセージ受信時に動作する処理
 @client.event

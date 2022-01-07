@@ -1,1 +1,3 @@
 TOKEN="discord bot token"
+GUILD_ID="00000000"
+CHANNEL_ID="00000000"
