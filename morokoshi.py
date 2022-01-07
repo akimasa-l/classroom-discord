@@ -8,6 +8,7 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 import discord
+import datetime
 import json
 
 TOKEN = morokoshi_token.TOKEN
@@ -18,7 +19,7 @@ client = discord.Client()
 async def on_ready():
     # 起動したらターミナルにログイン通知が表示される
     channel=await client.fetch_channel(morokoshi_token.CHANNEL_ID)
-    await channel.send(getClassroomInfo())
+    await channel.send(to_better_format(getClassroomInfo()))
     print('ログインしました')
 
 
@@ -26,12 +27,19 @@ async def on_ready():
 @client.event
 async def on_message(message):
     if message.content == 'たんたん大好き':
-        await message.channel.send(getClassroomInfo())
+        await message.channel.send(to_better_format(getClassroomInfo()))
 
 # Botの起動とDiscordサーバーへの接続
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/classroom.courses.readonly',"https://www.googleapis.com/auth/classroom.announcements.readonly"]
+
+def to_better_format(classroomInfo) -> str:
+    creationTime=datetime.datetime.fromisoformat(classroomInfo['creationTime'].replace('Z','+00:00'))
+    return f"""{creationTime.strftime('%Y年%m月%d日 %H時%M分')}
+
+{classroomInfo['text']}"""
+    
 
 
 # https://developers.google.com/classroom/quickstart/python
@@ -74,7 +82,7 @@ def getClassroomInfo():
             print(course['name'])
             print(course) """
         results = service.courses().announcements().list(courseId="1333776954",pageSize=1).execute()
-        print(results)
+        # print(results)
         return results.get("announcements", [])[0]
         
 
