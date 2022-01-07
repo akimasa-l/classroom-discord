@@ -9,7 +9,6 @@ from googleapiclient.errors import HttpError
 
 import discord
 import datetime
-import json
 
 TOKEN = morokoshi_token.TOKEN
 client = discord.Client()
