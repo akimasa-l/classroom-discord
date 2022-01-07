@@ -41,7 +41,11 @@ async def on_message(message):
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/classroom.courses.readonly',
-          "https://www.googleapis.com/auth/classroom.announcements.readonly"]
+          "https://www.googleapis.com/auth/classroom.announcements.readonly",
+          "https://www.googleapis.com/auth/classroom.rosters.readonly",
+          "https://www.googleapis.com/auth/classroom.profile.emails",
+          "https://www.googleapis.com/auth/classroom.rosters",
+          "https://www.googleapis.com/auth/classroom.profile.photos"]
 
 
 def to_better_json(classroomInfo):
@@ -84,31 +88,21 @@ def getClassroomInfo():
 
     try:
         service = build('classroom', 'v1', credentials=creds)
-
-        """ # Call the Classroom API
-        results = service.courses().list(pageSize=50).execute()
-        courses = results.get('courses', [])
-
-        if not courses:
-            print('No courses found.')
-            return
-        # Prints the names of the first 10 courses.
-        print('Courses:')
-        for course in courses:
-            print(course['name'])
-            print(course) """
         results = service.courses().announcements().list(
             courseId="1333776954", pageSize=1,
         ).execute()
         # print(results)
-        return results.get("announcements", [])[0]
+        announcement = results.get("announcements", [])[0]
+        userId = announcement["creatorUserId"]
+        results = service.userProfiles().get(userId=userId).execute()
+        return [to_better_json(announcement), results]
 
     except HttpError as error:
         print('An error occurred: %s' % error)
 
 
 def create_embed():
-    classroomInfo = to_better_json(getClassroomInfo())
+    classroomInfo, author = getClassroomInfo()
     # ここを見た
     # https://qiita.com/hisuie08/items/5b63924156080694fc81
     embed = discord.Embed(  # Embedを定義する
@@ -117,15 +111,14 @@ def create_embed():
         description=classroomInfo["text"],  # Embedの説明文 必要に応じて
         url=classroomInfo["url"]  # これを設定すると、タイトルが指定URLへのリンクになる
     )
-    embed.set_author(name=client.user,  # Botのユーザー名
-                     # titleのurlのようにnameをリンクにできる。botのWebサイトとかGithubとか
+    embed.set_author(name=author["name"]["fullName"],
                      url="https://github.com/akimasa-l/classroom-discord",
-                     icon_url=client.user.avatar_url  # Botのアイコンを設定してみる
+                     icon_url=f"""https:{author["photoUrl"]}"""
                      )
     embed.set_image(url="https://lh3.googleusercontent.com/-Dd8q9n-JKGs/XsICByZYRqI/AAAAAAAAAFA/roSOgvQ3HXsbwIZF3HcI_nw0Nt8pqabOwCLcBGAsYHQ/s1280-fcrop64=1,0118744bff72c9df/IMG_2254.JPG",)
-    embed.set_footer(text=f"""{classroomInfo["creationTime"].strftime('%Y年%m月%d日 %H時%M分')} (最終更新: {classroomInfo["updateTime"].strftime('%Y年%m月%d日 %H時%M分')})""")
+    embed.set_footer(
+        text=f"""{classroomInfo["creationTime"].strftime('%Y年%m月%d日 %H時%M分')} (最終更新: {classroomInfo["updateTime"].strftime('%Y年%m月%d日 %H時%M分')})""")
     return embed
-
 
 
 if __name__ == '__main__':
