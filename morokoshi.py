@@ -9,6 +9,7 @@ from googleapiclient.errors import HttpError
 
 import discord
 import datetime
+import json
 
 TOKEN = morokoshi_token.TOKEN
 client = discord.Client()
@@ -19,22 +20,9 @@ client = discord.Client()
 @client.event
 async def on_ready():
     # 起動したらターミナルにログイン通知が表示される
-    channel = await client.fetch_channel(morokoshi_token.CHANNEL_ID)
-    embed = discord.Embed(  # Embedを定義する
-        title="Example Embed",  # タイトル
-        color=0x00ff00,  # フレーム色指定(今回は緑)
-        description="Example Embed for Advent Calendar",  # Embedの説明文 必要に応じて
-        url="https://example.com"  # これを設定すると、タイトルが指定URLへのリンクになる
-    )
-    await channel.send(embed=create_embed())
-    print('ログインしました')
+    await create_embed()
+    # print('ログインしました')
 
-
-# メッセージ受信時に動作する処理
-@client.event
-async def on_message(message):
-    if message.content == 'たんたん大好き':
-        await message.channel.send(embed=create_embed())
 
 # Botの起動とDiscordサーバーへの接続
 
@@ -47,15 +35,25 @@ SCOPES = ['https://www.googleapis.com/auth/classroom.courses.readonly',
           "https://www.googleapis.com/auth/classroom.profile.photos"]
 
 
-def to_better_json(classroomInfo):
+def is_same_announcement(announcement) -> bool:
+    if os.path.exists("./announcement_url.txt"):
+        with open("./announcement_url.txt") as f:
+            if f.read() == announcement["url"]:
+                return True
+    with open("./announcement_url.txt", mode="w") as f:
+        f.write(announcement["url"])
+    return False
+
+
+def to_better_json(announcement):
     creationTime = datetime.datetime.fromisoformat(
-        classroomInfo['creationTime'].replace('Z', '+00:00'))
+        announcement['creationTime'].replace('Z', '+00:00'))
     updateTime = datetime.datetime.fromisoformat(
-        classroomInfo['updateTime'].replace('Z', '+00:00'))
-    title, *text = classroomInfo["text"].split("\n")
+        announcement['updateTime'].replace('Z', '+00:00'))
+    title, *text = announcement["text"].split("\n")
     return {"title": title,
             "text": "\n".join(text),
-            "url": classroomInfo["alternateLink"],
+            "url": announcement["alternateLink"],
             "creationTime": creationTime,
             "updateTime": updateTime
             }
@@ -100,15 +98,18 @@ def getClassroomInfo():
         print('An error occurred: %s' % error)
 
 
-def create_embed():
-    classroomInfo, author = getClassroomInfo()
+async def create_embed():
+    announcement, author = getClassroomInfo()
+    if is_same_announcement(announcement):
+        await client.close()
+        return
     # ここを見た
     # https://qiita.com/hisuie08/items/5b63924156080694fc81
     embed = discord.Embed(  # Embedを定義する
-        title=classroomInfo["title"],  # タイトル
+        title=announcement["title"],  # タイトル
         color=0x00ff00,  # フレーム色指定(今回は緑)
-        description=classroomInfo["text"],  # Embedの説明文 必要に応じて
-        url=classroomInfo["url"]  # これを設定すると、タイトルが指定URLへのリンクになる
+        description=announcement["text"],  # Embedの説明文 必要に応じて
+        url=announcement["url"]  # これを設定すると、タイトルが指定URLへのリンクになる
     )
     embed.set_author(name=author["name"]["fullName"],
                      url="https://github.com/akimasa-l/classroom-discord",
@@ -116,9 +117,10 @@ def create_embed():
                      )
     embed.set_image(url="https://lh3.googleusercontent.com/-Dd8q9n-JKGs/XsICByZYRqI/AAAAAAAAAFA/roSOgvQ3HXsbwIZF3HcI_nw0Nt8pqabOwCLcBGAsYHQ/s1280-fcrop64=1,0118744bff72c9df/IMG_2254.JPG",)
     embed.set_footer(
-        text=f"""{classroomInfo["creationTime"].strftime('%Y年%m月%d日 %H時%M分')} (最終更新: {classroomInfo["updateTime"].strftime('%Y年%m月%d日 %H時%M分')})""")
-    return embed
-
+        text=f"""{announcement["creationTime"].strftime('%Y年%m月%d日 %H時%M分')} (最終更新: {announcement["updateTime"].strftime('%Y年%m月%d日 %H時%M分')})""")
+    channel = await client.fetch_channel(morokoshi_token.CHANNEL_ID)
+    await channel.send(embed=embed)
+    await client.close()
 
 if __name__ == '__main__':
     client.run(TOKEN)
